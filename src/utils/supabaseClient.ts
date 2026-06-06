@@ -1,14 +1,27 @@
 import { createClient } from "@supabase/supabase-js";
 
-// Use placeholder values if environment variables are not provided at build time 
-// to prevent Next.js static prerendering compilation from crashing.
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder-project.supabase.co";
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "placeholder-anon-key";
+const getSupabaseCredentials = () => {
+  let url = (process.env.NEXT_PUBLIC_SUPABASE_URL || "").trim();
+  let key = (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "").trim();
 
-if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-  console.warn(
-    "Supabase environment variables NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY are missing. Using placeholders for compilation."
-  );
-}
+  // If variables are missing or stringified "undefined"/"null"
+  if (!url || url === "undefined" || url === "null") {
+    console.warn("NEXT_PUBLIC_SUPABASE_URL is missing. Using fallback placeholder URL.");
+    url = "https://placeholder-project.supabase.co";
+  } else if (!url.startsWith("http://") && !url.startsWith("https://")) {
+    console.warn("NEXT_PUBLIC_SUPABASE_URL is missing http/https protocol. Prepending https://");
+    url = `https://${url}`;
+  }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+  if (!key || key === "undefined" || key === "null") {
+    console.warn("NEXT_PUBLIC_SUPABASE_ANON_KEY is missing. Using fallback placeholder key.");
+    key = "placeholder-anon-key";
+  }
+
+  return { url, key };
+};
+
+const { url, key } = getSupabaseCredentials();
+
+export const supabase = createClient(url, key);
+

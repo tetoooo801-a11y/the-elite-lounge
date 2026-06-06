@@ -7,6 +7,7 @@ import { Footer } from "@/components/Footer";
 import { RevealOnScroll } from "@/components/RevealOnScroll";
 import { ParallaxBackground } from "@/components/ParallaxBackground";
 import { KineticText } from "@/components/KineticText";
+import { supabase } from "@/utils/supabaseClient";
 
 export default function Appointments() {
   const { language, t } = useLanguage();
@@ -23,6 +24,9 @@ export default function Appointments() {
     email: "",
     phone: "",
   });
+  const [submitting, setSubmitting] = useState(false);
+  const [submitStatus, setSubmitStatus] = useState<"idle" | "success" | "error">("idle");
+  const [errorMessage, setErrorMessage] = useState("");
 
   const handleCardMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
@@ -57,10 +61,45 @@ export default function Appointments() {
     }, 600);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    alert(isAr ? "تم تأكيد حجزك بنجاح!" : "Your reservation has been confirmed successfully!");
-    console.log("Reservation Submitted:", formData);
+    setSubmitting(true);
+    setSubmitStatus("idle");
+    setErrorMessage("");
+
+    try {
+      const { error } = await supabase.from("bookings").insert([
+        {
+          customer_name: formData.name,
+          email: formData.email,
+          phone: formData.phone,
+          service: formData.service,
+          specialist: formData.specialist,
+          booking_date: formData.date,
+          booking_time: formData.time,
+          status: "pending",
+        },
+      ]);
+
+      if (error) throw error;
+
+      setSubmitStatus("success");
+      setFormData({
+        service: "",
+        specialist: "",
+        date: "",
+        time: "",
+        name: "",
+        email: "",
+        phone: "",
+      });
+    } catch (err: any) {
+      console.error("Error creating booking:", err);
+      setSubmitStatus("error");
+      setErrorMessage(err.message || "Something went wrong. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -96,7 +135,26 @@ export default function Appointments() {
               className="glass-panel shimmer p-unit-lg md:p-[64px] rounded-none transition-transform duration-700 ease-[0.16,1,0.3,1]"
               style={cardStyle}
             >
-              <form onSubmit={handleSubmit} className="flex flex-col gap-unit-lg text-start ltr:text-left rtl:text-right">
+              {submitStatus === "success" ? (
+                <div className="text-center py-unit-md flex flex-col items-center gap-unit-md animate-fade-in-up">
+                  <span className="material-symbols-outlined text-[64px] text-primary">check_circle</span>
+                  <h2 className="font-display text-display-md text-on-surface">
+                    {isAr ? "تم تأكيد حجزك!" : "Reservation Secured"}
+                  </h2>
+                  <p className="font-body-md text-on-surface-variant max-w-md mx-auto">
+                    {isAr 
+                      ? "لقد تلقينا طلبك وسنتواصل معك قريبًا لتأكيد جلستك." 
+                      : "Your session request has been received. We will contact you shortly to confirm your booking details."}
+                  </p>
+                  <button
+                    onClick={() => setSubmitStatus("idle")}
+                    className="btn-luxury mt-unit-lg px-unit-lg py-unit-sm font-label-caps text-label-caps text-on-surface uppercase tracking-widest cursor-pointer"
+                  >
+                    {isAr ? "حجز جلسة أخرى" : "Book Another Session"}
+                  </button>
+                </div>
+              ) : (
+                <form onSubmit={handleSubmit} className="flex flex-col gap-unit-lg text-start ltr:text-left rtl:text-right">
                 {/* Selectors row */}
                 <div className="flex flex-col md:flex-row gap-unit-lg">
                   <div className="flex-1 flex flex-col gap-unit-xs group">
@@ -210,20 +268,27 @@ export default function Appointments() {
                   />
                 </div>
 
-                {/* Confirm Button */}
-                <button
-                  type="submit"
-                  className="btn-luxury mt-unit-xl w-full py-unit-md font-label-caps text-label-caps text-on-surface uppercase tracking-widest flex items-center justify-center gap-2 cursor-pointer"
-                >
-                  <span className="relative z-10">{t("btn_confirm")}</span>
-                  <span
-                    className="material-symbols-outlined text-[18px] relative z-10"
-                    data-icon="arrow_forward"
+                  {/* Confirm Button */}
+                  <button
+                    type="submit"
+                    disabled={submitting}
+                    className="btn-luxury mt-unit-xl w-full py-unit-md font-label-caps text-label-caps text-on-surface uppercase tracking-widest flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
                   >
-                    arrow_forward
-                  </span>
-                </button>
-              </form>
+                    <span className="relative z-10">{submitting ? (isAr ? "جاري الحفظ..." : "Securing Session...") : t("btn_confirm")}</span>
+                    {!submitting && (
+                      <span className="material-symbols-outlined text-[18px] relative z-10" data-icon="arrow_forward">
+                        arrow_forward
+                      </span>
+                    )}
+                  </button>
+
+                  {submitStatus === "error" && (
+                    <div className="mt-unit-md p-unit-sm border border-red-500/20 bg-red-500/5 text-center text-red-400 font-body-sm rounded-none">
+                      {isAr ? "عذرًا، حدث خطأ ما. يرجى المحاولة مرة أخرى." : errorMessage}
+                    </div>
+                  )}
+                </form>
+              )}
             </div>
           </RevealOnScroll>
 
